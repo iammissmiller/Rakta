@@ -74,8 +74,21 @@ const card: React.CSSProperties = {
   boxShadow: "0 2px 24px rgba(0,0,0,0.06)",
 };
 
+/** Small hook: tracks whether viewport is below the md breakpoint (768px) */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
 export default function Dashboard() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cycleInfo, setCycleInfo] = useState<CycleInfo | null>(null);
   const [greeting, setGreeting] = useState("Good morning");
@@ -157,16 +170,21 @@ export default function Dashboard() {
   const totalLogged = Object.keys(logs).length;
 
   const liftStyle = (hovered: boolean): React.CSSProperties => ({
-    transform: hovered ? "translateY(-4px)" : "translateY(0)",
-    boxShadow: hovered ? "0 10px 32px rgba(184,0,10,0.14)" : "0 2px 24px rgba(0,0,0,0.06)",
+    transform: hovered && !isMobile ? "translateY(-4px)" : "translateY(0)",
+    boxShadow: hovered && !isMobile ? "0 10px 32px rgba(184,0,10,0.14)" : "0 2px 24px rgba(0,0,0,0.06)",
     transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s ease",
     cursor: "pointer",
   });
 
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
-      style={{ background: "var(--background)", height: "100vh" }}
+      className="relative flex flex-col"
+      style={{
+        background: "var(--background)",
+        height: isMobile ? "auto" : "100vh",
+        minHeight: "100vh",
+        overflow: isMobile ? "visible" : "hidden",
+      }}
     >
       <style>{`
         @keyframes drift { 0%,100%{transform:translateX(0) translateY(0)} 33%{transform:translateX(5px) translateY(-4px)} 66%{transform:translateX(-4px) translateY(3px)} }
@@ -175,32 +193,59 @@ export default function Dashboard() {
         @keyframes fadeSlideUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
 
-      {/* Page decorations */}
-      <BowSVG style={{ position: "absolute", top: 10, right: 270, width: 52, height: 32, opacity: 0.65, zIndex: 3, pointerEvents: "none" }} />
-      <BowSVG style={{ position: "absolute", top: 12, right: 228, width: 34, height: 21, opacity: 0.42, zIndex: 3, pointerEvents: "none" }} />
-      <BowSVG style={{ position: "absolute", bottom: 120, left: 75, width: 40, height: 25, opacity: 0.32, transform: "rotate(-14deg)", zIndex: 3, pointerEvents: "none" }} />
-      <LipstickMark style={{ position: "absolute", top: 62, left: 168, width: 26, height: 15, opacity: 0.18, zIndex: 3, pointerEvents: "none", transform: "rotate(-20deg)" }} />
-      <LipstickMark style={{ position: "absolute", bottom: 205, right: 285, width: 22, height: 13, opacity: 0.14, zIndex: 3, pointerEvents: "none", transform: "rotate(14deg)" }} />
-      <div style={{ position: "absolute", top: 15, left: 94, fontSize: 16, color: "#B8000A", opacity: 0.28, transform: "rotate(-22deg)", zIndex: 3, pointerEvents: "none" }}>♥</div>
-      <div style={{ position: "absolute", top: 13, left: 265, fontSize: 11, color: "#B8000A", opacity: 0.2, transform: "rotate(8deg)", zIndex: 3, pointerEvents: "none" }}>♥</div>
-      <div style={{ position: "absolute", bottom: 170, left: 425, fontSize: 14, color: "#B8000A", opacity: 0.18, zIndex: 3, pointerEvents: "none" }}>♥</div>
-      <div style={{ position: "absolute", top: 262, left: 68, fontSize: 23, opacity: 0.18, transform: "rotate(18deg)", zIndex: 3, pointerEvents: "none" }}>🌹</div>
-      <div style={{ position: "absolute", bottom: 162, left: 202, fontSize: 16, opacity: 0.14, zIndex: 3, pointerEvents: "none" }}>🌹</div>
-      <div style={{ position: "absolute", top: 15, right: 298, fontSize: 18, opacity: 0.26, transform: "rotate(-12deg)", zIndex: 3, pointerEvents: "none" }}>🍓</div>
-      <div style={{ position: "absolute", bottom: 282, left: 312, fontSize: 14, opacity: 0.17, zIndex: 3, pointerEvents: "none" }}>🌸</div>
+      {/* Page decorations — hidden on mobile to avoid clutter/overlap */}
+      {!isMobile && (
+        <>
+          <BowSVG style={{ position: "absolute", top: 10, right: 270, width: 52, height: 32, opacity: 0.65, zIndex: 3, pointerEvents: "none" }} />
+          <BowSVG style={{ position: "absolute", top: 12, right: 228, width: 34, height: 21, opacity: 0.42, zIndex: 3, pointerEvents: "none" }} />
+          <BowSVG style={{ position: "absolute", bottom: 120, left: 75, width: 40, height: 25, opacity: 0.32, transform: "rotate(-14deg)", zIndex: 3, pointerEvents: "none" }} />
+          <LipstickMark style={{ position: "absolute", top: 62, left: 168, width: 26, height: 15, opacity: 0.18, zIndex: 3, pointerEvents: "none", transform: "rotate(-20deg)" }} />
+          <LipstickMark style={{ position: "absolute", bottom: 205, right: 285, width: 22, height: 13, opacity: 0.14, zIndex: 3, pointerEvents: "none", transform: "rotate(14deg)" }} />
+          <div style={{ position: "absolute", top: 15, left: 94, fontSize: 16, color: "#B8000A", opacity: 0.28, transform: "rotate(-22deg)", zIndex: 3, pointerEvents: "none" }}>♥</div>
+          <div style={{ position: "absolute", top: 13, left: 265, fontSize: 11, color: "#B8000A", opacity: 0.2, transform: "rotate(8deg)", zIndex: 3, pointerEvents: "none" }}>♥</div>
+          <div style={{ position: "absolute", bottom: 170, left: 425, fontSize: 14, color: "#B8000A", opacity: 0.18, zIndex: 3, pointerEvents: "none" }}>♥</div>
+          <div style={{ position: "absolute", top: 262, left: 68, fontSize: 23, opacity: 0.18, transform: "rotate(18deg)", zIndex: 3, pointerEvents: "none" }}>🌹</div>
+          <div style={{ position: "absolute", bottom: 162, left: 202, fontSize: 16, opacity: 0.14, zIndex: 3, pointerEvents: "none" }}>🌹</div>
+          <div style={{ position: "absolute", top: 15, right: 298, fontSize: 18, opacity: 0.26, transform: "rotate(-12deg)", zIndex: 3, pointerEvents: "none" }}>🍓</div>
+          <div style={{ position: "absolute", bottom: 282, left: 312, fontSize: 14, opacity: 0.17, zIndex: 3, pointerEvents: "none" }}>🌸</div>
+        </>
+      )}
 
-      <div className="relative flex flex-1" style={{ zIndex: 2, minHeight: 0 }}>
-        {/* LEFT 70% */}
-        <div className="flex flex-col gap-2.5" style={{ flex: "0 0 70%", padding: "18px 22px", minWidth: 0, height: "100%", minHeight: 0, boxSizing: "border-box" }}>
+      <div
+        className="relative flex flex-1"
+        style={{ zIndex: 2, minHeight: 0, flexDirection: isMobile ? "column" : "row" }}
+      >
+        {/* LEFT — 70% on desktop, full width on mobile */}
+        <div
+          className="flex flex-col gap-2.5"
+          style={{
+            flex: isMobile ? "1 1 auto" : "0 0 70%",
+            padding: isMobile ? "16px 14px" : "18px 22px",
+            minWidth: 0,
+            height: isMobile ? "auto" : "100%",
+            minHeight: 0,
+            boxSizing: "border-box",
+          }}
+        >
           {/* BANNER */}
-          <div style={{ ...card, display: "flex", alignItems: "stretch", overflow: "hidden", flexShrink: 0, animation: "breathe 4s ease-in-out infinite" }}>
+          <div
+            style={{
+              ...card,
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: "stretch",
+              overflow: "hidden",
+              flexShrink: 0,
+              animation: "breathe 4s ease-in-out infinite",
+            }}
+          >
             <div style={{ flex: 1, padding: "18px 24px", background: "#FFFAF4", display: "flex", flexDirection: "column", justifyContent: "center", position: "relative" }}>
               <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle,rgba(184,0,10,0.03) 1px,transparent 1px)", backgroundSize: "20px 20px", pointerEvents: "none" }} />
               <div style={{ position: "relative", zIndex: 1 }}>
                 <div style={{ fontSize: 10, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 5, fontFamily: "sans-serif" }}>
                   {greeting}
                 </div>
-                <div style={{ fontSize: 30, fontWeight: 700, color: "var(--color-ink)", fontFamily: "var(--font-serif)", fontStyle: "italic", marginBottom: 12, lineHeight: 1 }}>
+                <div style={{ fontSize: isMobile ? 24 : 30, fontWeight: 700, color: "var(--color-ink)", fontFamily: "var(--font-serif)", fontStyle: "italic", marginBottom: 12, lineHeight: 1 }}>
                   {profile.name} ♥
                 </div>
                 <div>
@@ -226,7 +271,19 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div style={{ width: 185, background: "linear-gradient(160deg,#B8000A,#7A0006)", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "14px 16px", flexShrink: 0, position: "relative" }}>
+            <div
+              style={{
+                width: isMobile ? "100%" : 185,
+                background: "linear-gradient(160deg,#B8000A,#7A0006)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: "14px 16px",
+                flexShrink: 0,
+                position: "relative",
+              }}
+            >
               <div style={{ position: "absolute", top: -28, right: -28, width: 110, height: 110, borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
               <div style={{ textAlign: "center", zIndex: 1 }}>
                 <div
@@ -257,7 +314,7 @@ export default function Dashboard() {
           </div>
 
           {/* STAT CARDS */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9, flexShrink: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 9, flexShrink: 0 }}>
             {[
               { val: profile.cycle_length || 28, label: "Cycle length", sub: "days", deco: "♥" },
               { val: profile.period_length || 5, label: "Period days", sub: "avg flow", deco: "🎀" },
@@ -297,12 +354,21 @@ export default function Dashboard() {
           </div>
 
           {/* BENTO GRID */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.55fr 0.55fr", gridTemplateRows: "1fr 1fr", gap: 10, flex: 1, minHeight: 0 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.55fr 0.55fr",
+              gridTemplateRows: isMobile ? "auto" : "1fr 1fr",
+              gap: 10,
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
             {/* Phase card */}
             <div
               style={{
                 ...card,
-                gridRow: "1 / 3",
+                gridRow: isMobile ? "auto" : "1 / 3",
                 position: "relative",
                 overflow: "hidden",
                 display: "flex",
@@ -311,6 +377,7 @@ export default function Dashboard() {
                 border: "none",
                 opacity: mounted ? 1 : 0,
                 animation: mounted ? "fadeSlideUp 0.7s cubic-bezier(0.4,0,0.2,1) 0.15s both" : "none",
+                minHeight: isMobile ? 280 : undefined,
               }}
             >
               <div style={{ position: "absolute", inset: 0, background: "#FFFAF4", zIndex: 0 }} />
@@ -319,7 +386,9 @@ export default function Dashboard() {
                 <circle cx={260} cy={60} r={100} fill="rgba(184,0,10,0.04)" />
                 <circle cx={30} cy={420} r={80} fill="rgba(184,0,10,0.03)" />
               </svg>
-              <div style={{ position: "absolute", top: 0, left: "-200%", right: "-200%", height: "100%", background: "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.05) 50%,transparent 60%)", animation: "shimmer 5s linear infinite", pointerEvents: "none", zIndex: 2 }} />
+              {!isMobile && (
+                <div style={{ position: "absolute", top: 0, left: "-200%", right: "-200%", height: "100%", background: "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.05) 50%,transparent 60%)", animation: "shimmer 5s linear infinite", pointerEvents: "none", zIndex: 2 }} />
+              )}
               <BowSVG style={{ position: "absolute", top: 12, right: 12, width: 28, height: 18, opacity: 0.55, zIndex: 4, pointerEvents: "none" }} />
 
               <div style={{ position: "relative", zIndex: 3, padding: "20px 18px" }}>
@@ -369,8 +438,8 @@ export default function Dashboard() {
                 flexDirection: "column",
                 justifyContent: "space-between",
                 animation: mounted ? "fadeSlideUp 0.6s cubic-bezier(0.4,0,0.2,1) 0.28s both" : "none",
-                transform: moodHover ? "translateY(-3px)" : "translateY(0)",
-                boxShadow: moodHover ? "0 8px 26px rgba(184,0,10,0.12)" : "0 2px 24px rgba(0,0,0,0.06)",
+                transform: moodHover && !isMobile ? "translateY(-3px)" : "translateY(0)",
+                boxShadow: moodHover && !isMobile ? "0 8px 26px rgba(184,0,10,0.12)" : "0 2px 24px rgba(0,0,0,0.06)",
                 transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease",
               }}
             >
@@ -426,9 +495,6 @@ export default function Dashboard() {
                     </span>
                   ))}
                 </div>
-                <div style={{ position: "absolute", bottom: 0, right: 0, fontSize: 8, color: "var(--color-muted)", fontFamily: "sans-serif", opacity: moodHover ? 0.7 : 0, transition: "opacity 0.25s" }}>
-                  view logs →
-                </div>
               </div>
             </div>
 
@@ -470,7 +536,7 @@ export default function Dashboard() {
               </div>
               <div style={{ position: "relative", zIndex: 3, padding: "0 13px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <BowSVG style={{ width: 18, height: 11, opacity: 0.4 }} />
-                <div style={{ fontSize: 9, color: "var(--color-muted)", fontFamily: "sans-serif", opacity: quoteHover ? 0.7 : 0.35, transition: "opacity 0.2s" }}>
+                <div style={{ fontSize: 9, color: "var(--color-muted)", fontFamily: "sans-serif", opacity: 0.5 }}>
                   tap for more ♥
                 </div>
               </div>
@@ -482,7 +548,7 @@ export default function Dashboard() {
               onMouseEnter={() => setSaheliHover(true)}
               onMouseLeave={() => setSaheliHover(false)}
               style={{
-                gridColumn: "2 / 4",
+                gridColumn: isMobile ? "1" : "2 / 4",
                 borderRadius: 20,
                 border: "1px solid rgba(184,0,10,0.15)",
                 background: "linear-gradient(145deg,#FFF5F0 0%,#FFF0EC 50%,#FFF5F0 100%)",
@@ -490,8 +556,8 @@ export default function Dashboard() {
                 overflow: "hidden",
                 padding: "16px 16px",
                 animation: mounted ? "fadeSlideUp 0.6s cubic-bezier(0.4,0,0.2,1) 0.48s both" : "none",
-                transform: saheliHover ? "translateY(-4px)" : "translateY(0)",
-                boxShadow: saheliHover ? "0 10px 30px rgba(184,0,10,0.16)" : "0 4px 24px rgba(184,0,10,0.08)",
+                transform: saheliHover && !isMobile ? "translateY(-4px)" : "translateY(0)",
+                boxShadow: saheliHover && !isMobile ? "0 10px 30px rgba(184,0,10,0.16)" : "0 4px 24px rgba(184,0,10,0.08)",
                 transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s ease",
                 cursor: "pointer",
               }}
@@ -501,8 +567,6 @@ export default function Dashboard() {
               <div style={{ position: "absolute", bottom: -20, left: -20, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle,rgba(184,0,10,0.05) 0%,transparent 70%)", zIndex: 0 }} />
 
               <BowSVG style={{ position: "absolute", top: 10, right: 14, width: 24, height: 15, opacity: 0.35, zIndex: 1, pointerEvents: "none" }} />
-              <div style={{ position: "absolute", bottom: 12, right: 55, fontSize: 10, color: "#B8000A", opacity: 0.2, zIndex: 1, pointerEvents: "none" }}>♥</div>
-              <div style={{ position: "absolute", top: 16, left: 220, fontSize: 8, color: "#B8000A", opacity: 0.18, zIndex: 1, pointerEvents: "none" }}>♥</div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, position: "relative", zIndex: 2 }}>
                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#B8000A,#880008)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 12px rgba(184,0,10,0.25)" }}>
@@ -531,6 +595,7 @@ export default function Dashboard() {
                   placeholder="Ask anything… periods, mood, PCOS, health ♥"
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     padding: "11px 16px",
                     borderRadius: 50,
                     border: `1.5px solid ${saheliFocus ? "rgba(184,0,10,0.4)" : "rgba(184,0,10,0.15)"}`,
@@ -584,15 +649,11 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-
-              <div style={{ position: "absolute", bottom: 8, right: 14, fontSize: 9, color: "var(--color-muted)", fontFamily: "sans-serif", opacity: saheliHover ? 0.7 : 0, transition: "opacity 0.25s", zIndex: 2 }}>
-                open full chat →
-              </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT 30% — desktop only */}
+        {/* RIGHT — 30%, desktop only (Tailwind hidden/md:flex handles the breakpoint) */}
         <div className="hidden md:flex" style={{ flex: "0 0 30%", padding: "18px 20px", flexDirection: "column", gap: 16, overflowY: "auto", position: "relative", borderLeft: "1px solid rgba(184,0,10,0.05)", height: "100%", boxSizing: "border-box" }}>
           <BowSVG style={{ position: "absolute", top: 14, right: 18, width: 30, height: 19, opacity: 0.4, pointerEvents: "none" }} />
           <BowSVG style={{ position: "absolute", top: 230, left: 6, width: 24, height: 15, opacity: 0.28, transform: "rotate(-12deg)", pointerEvents: "none" }} />
