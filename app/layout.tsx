@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, EB_Garamond } from "next/font/google";
 import "./globals.css";
-import { SideNav } from "@/components/BottomNav";
+import PaperTexture from "@/components/PaperTexture";
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-serif",
@@ -30,9 +30,9 @@ export default function RootLayout({
       lang="en"
       className={`${playfairDisplay.variable} ${ebGaramond.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex">
-        <SideNav />
-        <div className="flex-1 min-w-0 relative">{children}</div>
+      <body className="min-h-full">
+        <PaperTexture />
+        {children}
       </body>
     </html>
   );
