@@ -69,22 +69,32 @@ export default function Onboarding() {
     if (!isLast) setTimeout(() => setCurrentStep((p) => p + 1), 280);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!inputValue.trim()) return;
     const newAnswers = { ...answers, [step.id]: inputValue.trim() };
     setAnswers(newAnswers);
     setInputValue("");
 
     if (isLast) {
-      const profile = {
-        ...newAnswers,
-        cycle_length: 28,
-        period_length: 5,
-        created_at: new Date().toISOString(),
-      };
-      localStorage.setItem("rakta_profile", JSON.stringify(profile));
-      router.push("/welcome");
-    } else {
+  const res = await fetch("/api/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: newAnswers.name,
+      lifeStage: newAnswers.who,
+      pmosStatus: newAnswers.pcos,
+      lastPeriodDate: newAnswers.last_period,
+      cycleLength: 28,
+      periodLength: 5,
+    }),
+  });
+
+  if (res.ok) {
+    router.push("/welcome");
+  } else {
+    console.error("Failed to save profile");
+  }
+} else {
       setCurrentStep((p) => p + 1);
     }
   };

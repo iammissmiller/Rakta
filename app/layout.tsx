@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, EB_Garamond } from "next/font/google";
 import "./globals.css";
 import PaperTexture from "@/components/PaperTexture";
+import Providers from "@/components/Providers";
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-serif",
@@ -32,7 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         <PaperTexture />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
