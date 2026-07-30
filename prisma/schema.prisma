@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile         Profile?
+  cycleLogs       CycleLog[]
+  trustedContacts TrustedContact[]
+  chatMessages    ChatMessage[]
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name             String
+  lifeStage        LifeStage
+  pmosStatus       PmosStatus @default(unsure)
+  cycleLength      Int        @default(28)
+  periodLength     Int        @default(5)
+  lastPeriodDate   DateTime?
+  cycleRegularity  Regularity @default(unsure)
+  tryingToConceive Boolean    @default(false)
+  otherConditions  String[]   @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CycleLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date     DateTime
+  flow     String?
+  mood     String?
+  symptoms String[] @default([])
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+model TrustedContact {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name    String
+  phone   String?
+  sharing Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role    String
+  content String
+
+  createdAt DateTime @default(now())
+}
+
+enum LifeStage {
+  teenager
+  young_woman
+  pregnant
+  menopausal
+}
+
+enum PmosStatus {
+  yes
+  no
+  unsure
+}
+
+enum Regularity {
+  regular
+  irregular
+  unsure
+}
