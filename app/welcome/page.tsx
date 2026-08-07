@@ -12,23 +12,24 @@ export default function Welcome() {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("rakta_profile");
-    if (!stored) {
-      router.replace("/onboarding");
-      return;
-    }
-    const profile = JSON.parse(stored);
-    setName(profile.name || "");
-
-    const t1 = setTimeout(() => setVisible(true), 150);
-    const t2 = setTimeout(() => setHintVisible(true), 900);
-    const t3 = setTimeout(() => setHintVisible(false), 3200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [router]);
+  fetch("/api/profile")
+    .then((res) => res.json())
+    .then((profile) => {
+      if (!profile || !profile.id) {
+        router.replace("/onboarding");
+        return;
+      }
+      setName(profile.name || "");
+      const t1 = setTimeout(() => setVisible(true), 150);
+      const t2 = setTimeout(() => setHintVisible(true), 900);
+      const t3 = setTimeout(() => setHintVisible(false), 3200);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    });
+}, [router]);
 
   const enter = () => {
     setLeaving(true);

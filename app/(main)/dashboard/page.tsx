@@ -104,30 +104,42 @@ export default function Dashboard() {
   const [moodHover, setMoodHover] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("rakta_profile");
-    if (!stored) {
-      router.replace("/onboarding");
-      return;
-    }
-    const p: Profile = JSON.parse(stored);
-    if (!p.name) {
-      p.name = "friend";
-      localStorage.setItem("rakta_profile", JSON.stringify(p));
-    }
-    setProfile(p);
-    if (p.last_period) {
-      setCycleInfo(getCycleInfo(p.last_period, p.cycle_length || 28, p.period_length || 5));
-    }
-    const hr = new Date().getHours();
-    setGreeting(hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening");
-    const sl: Record<string, DayLog> = JSON.parse(localStorage.getItem("rakta_logs") || "{}");
-    setLogs(sl);
-    const today = new Date().toISOString().split("T")[0];
-    if (sl[today]?.mood) setQuickMood(sl[today].mood);
-    setDailyQuote(QUOTE_POOL[Math.floor(Math.random() * QUOTE_POOL.length)]);
-    const t = setTimeout(() => setMounted(true), 80);
-    return () => clearTimeout(t);
-  }, [router]);
+  fetch("/api/profile")
+    .then((res) => res.json())
+    .then((dbProfile) => {
+      if (!dbProfile || !dbProfile.id) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      const p: Profile = {
+        name: dbProfile.name,
+        who: dbProfile.lifeStage,
+        pcos: dbProfile.pmosStatus,
+        cycle_length: dbProfile.cycleLength,
+        period_length: dbProfile.periodLength,
+        last_period: dbProfile.lastPeriodDate
+          ? dbProfile.lastPeriodDate.split("T")[0]
+          : undefined,
+      };
+      setProfile(p);
+
+      if (p.last_period) {
+        setCycleInfo(getCycleInfo(p.last_period, p.cycle_length || 28, p.period_length || 5));
+      }
+
+      const hr = new Date().getHours();
+      setGreeting(hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening");
+
+      const sl: Record<string, DayLog> = JSON.parse(localStorage.getItem("rakta_logs") || "{}");
+      setLogs(sl);
+      const today = new Date().toISOString().split("T")[0];
+      if (sl[today]?.mood) setQuickMood(sl[today].mood);
+
+      setDailyQuote(QUOTE_POOL[Math.floor(Math.random() * QUOTE_POOL.length)]);
+      setTimeout(() => setMounted(true), 80);
+    });
+}, [router]);
 
   const handleQuickMood = (label: string) => {
     setQuickMood(label);
