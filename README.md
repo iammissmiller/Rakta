@@ -7,16 +7,16 @@ A menstrual health app for Indian women — built end to end, learning TypeScrip
 - 🌷 Personalized onboarding based on life stage, PMOS/PCOS, and cycle history
 - 💬 Saheli — a bilingual (Hindi/English) AI companion for health questions
 - 📜 A diary-inspired design — paper texture, crimson ink, warm serif type — because a health app doesn't have to feel clinical
-- 🔐 Real accounts with email/password login (Google sign-in coming soon)
+- 🔐 Real accounts — signup, login, and onboarding all persist to Postgres (Google sign-in coming soon)
 
 ## Tech stack 💻
 - Next.js 14 (App Router) + TypeScript
 - Tailwind CSS v4
 - PostgreSQL (Neon) + Prisma
 - NextAuth v5 (Auth.js) — credentials login, Google OAuth planned
-- Vercel AI SDK — *planned*
+- Vercel AI SDK + Groq — *building now* (Saheli, the AI companion)
 - Vitest + Playwright — *planned*
 - Docker + GitHub Actions CI/CD — *planned*
 
 ## Where this stands ✨
-Real auth and a real database are live — signup, login, and onboarding data all persist to Postgres. Currently connecting the dashboard to real data (still partially reading from localStorage), then moving on to Saheli's AI backend and testing.
+Auth, database, onboarding, and the dashboard are fully working end to end — real accounts, real data, no localStorage dependency left in the core flow. Currently building Saheli (the AI chat companion). Tracker, Learn, and Family pages are next.
