@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TrackerCalendar from "@/components/TrackerCalendar";
 import { BowSVG } from "@/components/Decorations";
-import { getCycleInfo, type CycleInfo } from "@/lib/cycle";
+import { getCycleInfo, getPregnancyWeek, type CycleInfo } from "@/lib/cycle";
 
 interface Profile {
   id: string;
@@ -85,13 +85,6 @@ function getRecentCycleLengths(starts: string[]): number[] {
     );
   }
   return lengths.slice(-4);
-}
-
-function getPregnancyWeek(lastPeriodDate: string) {
-  const days = Math.floor((Date.now() - new Date(lastPeriodDate).getTime()) / 86400000);
-  const week = Math.max(1, Math.min(42, Math.floor(days / 7) + 1));
-  const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
-  return { week, trimester };
 }
 
 export default function Tracker() {

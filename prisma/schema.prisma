@@ -24,6 +24,10 @@ model User {
   trustedContacts TrustedContact[]
   chatMessages    ChatMessage[]
   importantDates  ImportantDate[]
+
+  // Trusted-contact rows (belonging to OTHER users) that this account has
+  // claimed an invite for — i.e. this person is someone else's viewer.
+  viewingFor TrustedContact[] @relation("TrustedContactViewer")
 }
 
 model Profile {
@@ -62,8 +66,6 @@ model CycleLog {
   @@unique([userId, date])
 }
 
-// Meetings, deadlines, travel — dates a working woman wants the tracker to
-// be aware of, so a predicted period can be flagged as a potential clash.
 model ImportantDate {
   id     String @id @default(cuid())
   userId String
@@ -84,7 +86,17 @@ model TrustedContact {
 
   name    String
   phone   String?
-  sharing Boolean @default(false)
+  sharing Boolean @default(true)
+
+  // A random, unguessable token used in the invite link (/invite/[token]).
+  // Regenerated on revoke, so an old copied link stops working.
+  inviteToken String @unique @default(cuid())
+
+  // The account that claimed this invite (created an account and opened
+  // the link). Null until claimed. Only this account may view the shared
+  // status — the link is single-claim, not a public open link.
+  viewerUserId String?
+  viewer       User?   @relation("TrustedContactViewer", fields: [viewerUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 }

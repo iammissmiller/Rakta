@@ -142,3 +142,12 @@ export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "long" });
 }
+
+/** Gestational week/trimester from a last-period (LMP) date. Shared by the
+ * Tracker and the family invite view so both agree on the same numbers. */
+export function getPregnancyWeek(lastPeriodDate: string) {
+  const days = Math.floor((Date.now() - new Date(lastPeriodDate).getTime()) / 86400000);
+  const week = Math.max(1, Math.min(42, Math.floor(days / 7) + 1));
+  const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
+  return { week, trimester };
+}

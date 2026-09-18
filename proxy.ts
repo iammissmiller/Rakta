@@ -15,5 +15,8 @@ export const config = {
     "/dashboard/:path*",
     "/saheli/:path*",
     "/tracker/:path*",
+    "/settings/:path*",
+    "/family/:path*",
+    "/invite/:path*",
   ],
 };

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { BowSVG } from "@/components/Decorations";
 
-export default function Login() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,25 +36,36 @@ export default function Login() {
       }
 
       const result = await signIn("credentials", {
-  email,
-  password,
-  redirect: false,
-});
+        email,
+        password,
+        redirect: false,
+      });
 
-if (result?.error) {
-  setError("Invalid email or password");
-  setLoading(false);
-  return;
-}
+      if (result?.error) {
+        setError("Invalid email or password");
+        setLoading(false);
+        return;
+      }
 
-const profileRes = await fetch("/api/profile");
-const profile = await profileRes.json();
+      // If we got here because proxy.ts bounced someone off a protected
+      // route (e.g. an invite link) before they were logged in, send them
+      // back to exactly where they were headed instead of always running
+      // the normal onboarding check — a viewer claiming a family invite
+      // shouldn't be routed through setting up their own cycle tracking.
+      const callbackUrl = searchParams.get("callbackUrl");
+      if (callbackUrl) {
+        router.push(callbackUrl);
+        return;
+      }
 
-if (profile && profile.id) {
-  router.push("/dashboard");
-} else {
-  router.push("/onboarding");
-}
+      const profileRes = await fetch("/api/profile");
+      const profile = await profileRes.json();
+
+      if (profile && profile.id) {
+        router.push("/dashboard");
+      } else {
+        router.push("/onboarding");
+      }
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -90,6 +102,12 @@ if (profile && profile.id) {
           <h1 className="mt-3 font-serif text-2xl italic font-bold text-ink">
             {mode === "login" ? "Welcome back" : "Create your account"}
           </h1>
+          {searchParams.get("callbackUrl")?.includes("/invite/") && (
+            <p className="mt-2 text-xs text-muted">
+              {mode === "login" ? "Log in" : "Create an account"} to view what
+              was shared with you.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -137,5 +155,13 @@ if (profile && profile.id) {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
