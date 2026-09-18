@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { BowSVG } from "@/components/Decorations";
 
 const SUGGESTED = [
@@ -13,7 +13,7 @@ const SUGGESTED = [
   "Ovulation kab hota hai?",
 ];
 
-function SaheliChat() {
+function SaheliChat({ initialMessages }: { initialMessages: UIMessage[] }) {
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -22,6 +22,7 @@ function SaheliChat() {
   const sentInitialQuestion = useRef(false);
 
   const { messages, sendMessage, status } = useChat({
+    messages: initialMessages,
     transport: new DefaultChatTransport({ api: "/api/saheli" }),
   });
 
@@ -183,10 +184,31 @@ function SaheliChat() {
   );
 }
 
+function HistoryLoader() {
+  const [history, setHistory] = useState<UIMessage[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/saheli/history")
+      .then((res) => res.json())
+      .then((data) => setHistory(Array.isArray(data) ? data : []))
+      .catch(() => setHistory([])); // start fresh rather than block on a failed fetch
+  }, []);
+
+  if (history === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="pulse font-serif text-sm italic text-crimson">Loading…</div>
+      </div>
+    );
+  }
+
+  return <SaheliChat initialMessages={history} />;
+}
+
 export default function Saheli() {
   return (
     <Suspense fallback={null}>
-      <SaheliChat />
+      <HistoryLoader />
     </Suspense>
   );
 }
