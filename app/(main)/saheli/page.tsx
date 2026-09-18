@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { BowSVG } from "@/components/Decorations";
@@ -12,9 +13,13 @@ const SUGGESTED = [
   "Ovulation kab hota hai?",
 ];
 
-export default function Saheli() {
+function SaheliChat() {
+  const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Guards against re-sending the initial ?q= question if this component
+  // re-renders (e.g. StrictMode double-invoke in dev).
+  const sentInitialQuestion = useRef(false);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/saheli" }),
@@ -25,6 +30,21 @@ export default function Saheli() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // The dashboard's quick-ask box navigates here as /saheli?q=<question>.
+  // Previously nothing read that param, so the typed question was
+  // silently discarded and the user landed on a blank chat. Now it's
+  // sent automatically, once, on arrival.
+  useEffect(() => {
+    const initialQuestion = searchParams.get("q");
+    if (initialQuestion && !sentInitialQuestion.current) {
+      sentInitialQuestion.current = true;
+      sendMessage({ text: initialQuestion });
+    }
+    // Intentionally only on mount — sendMessage identity can change
+    // between renders and we don't want this firing again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const send = (text?: string) => {
     const userText = text || input.trim();
@@ -160,5 +180,13 @@ export default function Saheli() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function Saheli() {
+  return (
+    <Suspense fallback={null}>
+      <SaheliChat />
+    </Suspense>
   );
 }
