@@ -7,6 +7,9 @@ export interface CycleInfo {
   nextPeriodDate: string;
   cycleLength: number;
   periodLength: number;
+  isOverdue: boolean;
+  /** How many days past the expected cycle length, 0 if not overdue. */
+  daysOverdue: number;
 }
 
 export function getCycleInfo(
@@ -19,16 +22,32 @@ export function getCycleInfo(
   const daysSinceLast = Math.floor(
     (today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24)
   );
-  const dayInCycle = (daysSinceLast % cycleLength) + 1;
 
-  const daysUntilNext = cycleLength - (daysSinceLast % cycleLength);
-  const nextPeriod = new Date(today);
-  nextPeriod.setDate(today.getDate() + daysUntilNext);
+  const isOverdue = daysSinceLast >= cycleLength;
+  const daysOverdue = isOverdue ? daysSinceLast - cycleLength + 1 : 0;
+
+  // Day-in-cycle counts up from 1 and keeps climbing past cycleLength when
+  // overdue, instead of wrapping back to a low number via modulo. Wrapping
+  // was the original bug: it made a 35-day-late period look like day 8 of
+  // a brand-new cycle instead of flagging it as overdue.
+  const dayInCycle = daysSinceLast + 1;
+
+  const daysUntilNextPeriod = isOverdue ? 0 : cycleLength - daysSinceLast;
+
+  // The "expected" next period date, based on the last logged start date.
+  // Once overdue this date is in the past — that's intentional, it tells
+  // the caller what date was expected rather than guessing a new one.
+  const expectedNextPeriod = new Date(last);
+  expectedNextPeriod.setDate(last.getDate() + cycleLength);
 
   const ovulationDay = cycleLength - 14;
 
   let phase: CyclePhase;
-  if (dayInCycle <= periodLength) {
+  if (isOverdue) {
+    // Past the modeled 4-phase cycle — treat as extended luteal rather
+    // than guessing at a phase that assumes a period started on time.
+    phase = "luteal";
+  } else if (dayInCycle <= periodLength) {
     phase = "menstrual";
   } else if (dayInCycle <= ovulationDay - 2) {
     phase = "follicular";
@@ -41,10 +60,12 @@ export function getCycleInfo(
   return {
     dayInCycle,
     phase,
-    daysUntilNextPeriod: daysUntilNext,
-    nextPeriodDate: nextPeriod.toISOString().split("T")[0],
+    daysUntilNextPeriod,
+    nextPeriodDate: expectedNextPeriod.toISOString().split("T")[0],
     cycleLength,
     periodLength,
+    isOverdue,
+    daysOverdue,
   };
 }
 
