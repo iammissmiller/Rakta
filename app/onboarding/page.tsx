@@ -59,6 +59,8 @@ export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [inputValue, setInputValue] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const step = steps[currentStep];
   const isLast = currentStep === steps.length - 1;
@@ -74,27 +76,39 @@ export default function Onboarding() {
     const newAnswers = { ...answers, [step.id]: inputValue.trim() };
     setAnswers(newAnswers);
     setInputValue("");
+    setSaveError("");
 
     if (isLast) {
-  const res = await fetch("/api/profile", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: newAnswers.name,
-      lifeStage: newAnswers.who,
-      pmosStatus: newAnswers.pcos,
-      lastPeriodDate: newAnswers.last_period,
-      cycleLength: 28,
-      periodLength: 5,
-    }),
-  });
+      setSaving(true);
+      try {
+        const res = await fetch("/api/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newAnswers.name,
+            lifeStage: newAnswers.who,
+            pmosStatus: newAnswers.pcos,
+            lastPeriodDate: newAnswers.last_period,
+            cycleLength: 28,
+            periodLength: 5,
+          }),
+        });
 
-  if (res.ok) {
-    router.push("/welcome");
-  } else {
-    console.error("Failed to save profile");
-  }
-} else {
+        if (res.ok) {
+          router.push("/welcome");
+        } else {
+          setSaveError(
+            "Something went wrong saving your profile. Please try again."
+          );
+        }
+      } catch {
+        setSaveError(
+          "Couldn't reach the server. Check your connection and try again."
+        );
+      } finally {
+        setSaving(false);
+      }
+    } else {
       setCurrentStep((p) => p + 1);
     }
   };
@@ -130,7 +144,10 @@ export default function Onboarding() {
         <div className="mb-6 flex items-center gap-3">
           {currentStep > 0 && (
             <button
-              onClick={() => setCurrentStep((p) => p - 1)}
+              onClick={() => {
+                setSaveError("");
+                setCurrentStep((p) => p - 1);
+              }}
               aria-label="Go back"
               className="text-lg leading-none text-muted"
             >
@@ -182,9 +199,9 @@ export default function Onboarding() {
             />
             <button
               onClick={handleContinue}
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || saving}
               className="btn-primary"
-              style={{ opacity: inputValue.trim() ? 1 : 0.4 }}
+              style={{ opacity: inputValue.trim() && !saving ? 1 : 0.4 }}
             >
               Continue →
             </button>
@@ -203,13 +220,24 @@ export default function Onboarding() {
             />
             <button
               onClick={handleContinue}
-              disabled={!inputValue}
+              disabled={!inputValue || saving}
               className="btn-primary"
-              style={{ opacity: inputValue ? 1 : 0.4 }}
+              style={{ opacity: inputValue && !saving ? 1 : 0.4 }}
             >
-              Continue →
+              {saving ? "Saving..." : "Continue →"}
             </button>
           </>
+        )}
+
+        {/* Save error, shown on the last (date) step */}
+        {saveError && (
+          <p
+            className="mt-3 text-center text-sm"
+            style={{ color: "#B8000A" }}
+            role="alert"
+          >
+            {saveError}
+          </p>
         )}
 
         {/* Option cards */}
