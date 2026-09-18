@@ -23,6 +23,7 @@ model User {
   cycleLogs       CycleLog[]
   trustedContacts TrustedContact[]
   chatMessages    ChatMessage[]
+  importantDates  ImportantDate[]
 }
 
 model Profile {
@@ -59,6 +60,21 @@ model CycleLog {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, date])
+}
+
+// Meetings, deadlines, travel — dates a working woman wants the tracker to
+// be aware of, so a predicted period can be flagged as a potential clash.
+model ImportantDate {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date  DateTime
+  label String
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date, label])
 }
 
 model TrustedContact {

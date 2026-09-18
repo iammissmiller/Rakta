@@ -91,6 +91,7 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cycleInfo, setCycleInfo] = useState<CycleInfo | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [greeting, setGreeting] = useState("Good morning");
   const [logs, setLogs] = useState<Record<string, DayLog>>({});
   const [mounted, setMounted] = useState(false);
@@ -104,52 +105,86 @@ export default function Dashboard() {
   const [moodHover, setMoodHover] = useState(false);
 
   useEffect(() => {
-  fetch("/api/profile")
-    .then((res) => res.json())
-    .then((dbProfile) => {
-      if (!dbProfile || !dbProfile.id) {
-        router.replace("/onboarding");
-        return;
-      }
+    Promise.all([
+      fetch("/api/profile").then((res) => res.json()),
+      fetch("/api/logs").then((res) => res.json()),
+    ])
+      .then(([dbProfile, dbLogs]) => {
+        if (!dbProfile || !dbProfile.id) {
+          router.replace("/onboarding");
+          return;
+        }
 
-      const p: Profile = {
-        name: dbProfile.name,
-        who: dbProfile.lifeStage,
-        pcos: dbProfile.pmosStatus,
-        cycle_length: dbProfile.cycleLength,
-        period_length: dbProfile.periodLength,
-        last_period: dbProfile.lastPeriodDate
-          ? dbProfile.lastPeriodDate.split("T")[0]
-          : undefined,
-      };
-      setProfile(p);
+        const p: Profile = {
+          name: dbProfile.name,
+          who: dbProfile.lifeStage,
+          pcos: dbProfile.pmosStatus,
+          cycle_length: dbProfile.cycleLength,
+          period_length: dbProfile.periodLength,
+          last_period: dbProfile.lastPeriodDate
+            ? dbProfile.lastPeriodDate.split("T")[0]
+            : undefined,
+        };
+        setProfile(p);
 
-      if (p.last_period) {
-        setCycleInfo(getCycleInfo(p.last_period, p.cycle_length || 28, p.period_length || 5));
-      }
+        // Only compute cycle info when we actually have a last period date.
+        // Previously, a missing date left cycleInfo permanently null, and
+        // since the render guard below waited on both profile AND
+        // cycleInfo, the page got stuck on "Loading…" forever with no
+        // way out. profileLoaded now lets us tell "still fetching" apart
+        // from "fetched, but can't compute a cycle" so we can show a real
+        // fallback instead of an infinite spinner.
+        if (p.last_period) {
+          setCycleInfo(getCycleInfo(p.last_period, p.cycle_length || 28, p.period_length || 5));
+        }
 
-      const hr = new Date().getHours();
-      setGreeting(hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening");
+        const hr = new Date().getHours();
+        setGreeting(hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening");
 
-      const sl: Record<string, DayLog> = JSON.parse(localStorage.getItem("rakta_logs") || "{}");
-      setLogs(sl);
-      const today = new Date().toISOString().split("T")[0];
-      if (sl[today]?.mood) setQuickMood(sl[today].mood);
+        const sl: Record<string, DayLog> = dbLogs || {};
+        setLogs(sl);
+        const today = new Date().toISOString().split("T")[0];
+        if (sl[today]?.mood) setQuickMood(sl[today].mood);
 
-      setDailyQuote(QUOTE_POOL[Math.floor(Math.random() * QUOTE_POOL.length)]);
-      setTimeout(() => setMounted(true), 80);
-    });
-}, [router]);
+        setDailyQuote(QUOTE_POOL[Math.floor(Math.random() * QUOTE_POOL.length)]);
+        setProfileLoaded(true);
+        setTimeout(() => setMounted(true), 80);
+      })
+      .catch(() => {
+        // Network/API failure — don't leave the user on an infinite
+        // spinner either; surface it the same way as "profile loaded but
+        // incomplete" so there's always a way forward.
+        setProfileLoaded(true);
+      });
+  }, [router]);
 
   const handleQuickMood = (label: string) => {
     setQuickMood(label);
     const today = new Date().toISOString().split("T")[0];
-    const ex: Record<string, DayLog> = JSON.parse(localStorage.getItem("rakta_logs") || "{}");
-    ex[today] = { ...(ex[today] || { date: today }), mood: label };
-    localStorage.setItem("rakta_logs", JSON.stringify(ex));
-    setLogs({ ...ex });
+    const existing = logs[today] || { date: today };
+    const updated: DayLog = { ...existing, mood: label };
+
+    // Optimistic UI update, then sync to the same /api/logs source the
+    // Tracker page reads and writes — keeps the two screens showing the
+    // same data instead of dashboard mood picks living only in the browser.
+    setLogs((prev) => ({ ...prev, [today]: updated }));
     setMoodSaved(true);
     setTimeout(() => setMoodSaved(false), 2200);
+
+    fetch("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: today,
+        flow: updated.flow,
+        mood: updated.mood,
+        symptoms: updated.symptoms,
+        notes: updated.notes,
+      }),
+    }).catch(() => {
+      // Best-effort — if this fails, the mood still shows locally for this
+      // session, and the next successful fetch will reconcile it.
+    });
   };
 
   const handleSaheliSend = () => {
@@ -165,10 +200,38 @@ export default function Dashboard() {
     setDailyQuote(next);
   };
 
-  if (!profile || !cycleInfo) {
+  // Still waiting on the initial /api/profile fetch — this is the only
+  // state that should show the spinner.
+  if (!profileLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="pulse font-serif text-sm italic text-crimson">Loading…</div>
+      </div>
+    );
+  }
+
+  // Profile fetch finished, but there's no way to compute a cycle (missing
+  // last period date, or the fetch itself failed). Previously this state
+  // was indistinguishable from "still loading" and the spinner never
+  // resolved. Now it's an explicit, actionable screen instead of a dead end.
+  if (!profile || !cycleInfo) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+        <BowSVG style={{ width: 40, height: 25, opacity: 0.5 }} />
+        <div className="font-serif text-lg italic text-ink">
+          Let&apos;s finish setting up your profile
+        </div>
+        <p className="max-w-xs text-sm text-muted">
+          We couldn&apos;t find a last period date on your profile, so we
+          can&apos;t show your cycle yet.
+        </p>
+        <button
+          onClick={() => router.push("/onboarding")}
+          className="btn-primary"
+          style={{ width: "auto", padding: "10px 28px" }}
+        >
+          Complete profile →
+        </button>
       </div>
     );
   }
@@ -178,7 +241,7 @@ export default function Dashboard() {
     .sort((a, b) => b[0].localeCompare(a[0]))
     .slice(0, 8);
   const cycleProgress = (cycleInfo.dayInCycle / (profile.cycle_length || 28)) * 100;
-  const phaseWord = PHASE_WORD[cycleInfo.phase];
+  const phaseWord = cycleInfo.isOverdue ? "Overdue" : PHASE_WORD[cycleInfo.phase];
   const totalLogged = Object.keys(logs).length;
 
   const liftStyle = (hovered: boolean): React.CSSProperties => ({
@@ -263,7 +326,9 @@ export default function Dashboard() {
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: 11, color: "var(--color-crimson)", fontFamily: "var(--font-serif)", fontStyle: "italic" }}>
-                      {phase.name} phase · Day {cycleInfo.dayInCycle}
+                      {cycleInfo.isOverdue
+                        ? `Period overdue · ${cycleInfo.daysOverdue}d`
+                        : `${phase.name} phase · Day ${cycleInfo.dayInCycle}`}
                     </span>
                     <span style={{ fontSize: 10, color: "var(--color-muted)", fontFamily: "sans-serif" }}>
                       {profile.cycle_length || 28} days
@@ -275,7 +340,7 @@ export default function Dashboard() {
                         height: "100%",
                         borderRadius: 3,
                         background: "linear-gradient(90deg,#B8000A,#E86080)",
-                        width: mounted ? `${cycleProgress}%` : "0%",
+                        width: mounted ? `${Math.min(cycleProgress, 100)}%` : "0%",
                         transition: "width 1.4s cubic-bezier(0.4,0,0.2,1)",
                       }}
                     />
@@ -300,7 +365,7 @@ export default function Dashboard() {
               <div style={{ textAlign: "center", zIndex: 1 }}>
                 <div
                   style={{
-                    fontSize: 32,
+                    fontSize: cycleInfo.isOverdue ? 20 : 32,
                     fontWeight: 700,
                     color: "#FFFFFF",
                     fontFamily: "var(--font-serif)",
@@ -310,12 +375,18 @@ export default function Dashboard() {
                     transition: "all 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.3s",
                   }}
                 >
-                  {cycleInfo.daysUntilNextPeriod}
+                  {cycleInfo.isOverdue ? "Overdue" : cycleInfo.daysUntilNextPeriod}
                 </div>
                 <div style={{ fontSize: 8, color: "rgba(255,220,210,0.65)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3, fontFamily: "sans-serif" }}>
-                  days to
-                  <br />
-                  period
+                  {cycleInfo.isOverdue ? (
+                    "consider logging"
+                  ) : (
+                    <>
+                      days to
+                      <br />
+                      period
+                    </>
+                  )}
                 </div>
               </div>
               <div style={{ width: 1, height: 36, background: "rgba(255,200,190,0.15)", zIndex: 1 }} />
@@ -330,7 +401,13 @@ export default function Dashboard() {
             {[
               { val: profile.cycle_length || 28, label: "Cycle length", sub: "days", deco: "♥" },
               { val: profile.period_length || 5, label: "Period days", sub: "avg flow", deco: "🎀" },
-              { val: cycleInfo.daysUntilNextPeriod, label: "Next period", sub: formatDate(cycleInfo.nextPeriodDate), deco: "🍓" },
+              {
+                val: cycleInfo.isOverdue ? `+${cycleInfo.daysOverdue}` : cycleInfo.daysUntilNextPeriod,
+                label: cycleInfo.isOverdue ? "Days overdue" : "Next period",
+                sub: cycleInfo.isOverdue ? "log when it starts" : formatDate(cycleInfo.nextPeriodDate),
+                deco: "🍓",
+                red: cycleInfo.isOverdue,
+              },
               {
                 val: profile.pcos === "yes" ? "On" : "Off",
                 label: "PCOS mode",
@@ -408,14 +485,16 @@ export default function Dashboard() {
                   <PhaseIcon phase={cycleInfo.phase} size={22} color="#B8000A" />
                 </div>
                 <div style={{ fontSize: 9, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.2em", fontFamily: "sans-serif", marginBottom: 10 }}>
-                  {phase.name} phase
+                  {cycleInfo.isOverdue ? "Period overdue" : `${phase.name} phase`}
                 </div>
                 <div style={{ fontSize: 42, fontWeight: 900, color: "var(--color-crimson)", fontFamily: "var(--font-serif)", fontStyle: "italic", lineHeight: 1, letterSpacing: "-0.02em" }}>
                   {phaseWord}
                 </div>
                 <div style={{ width: 28, height: 2, background: "var(--color-crimson)", borderRadius: 2, marginTop: 10, marginBottom: 10, opacity: 0.4 }} />
                 <div style={{ fontSize: 11, color: "var(--color-muted)", fontFamily: "var(--font-body)", lineHeight: 1.7 }}>
-                  Day {cycleInfo.dayInCycle} of your cycle
+                  {cycleInfo.isOverdue
+                    ? `${cycleInfo.daysOverdue} day${cycleInfo.daysOverdue === 1 ? "" : "s"} past your expected cycle length`
+                    : `Day ${cycleInfo.dayInCycle} of your cycle`}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
                   {["♥", "♥", "♥"].map((h, i) => (
