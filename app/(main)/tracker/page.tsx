@@ -95,11 +95,15 @@ export default function Tracker() {
   const [loaded, setLoaded] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayKey());
 
-  // Form state for the selected day
-  const [flow, setFlow] = useState("none");
-  const [mood, setMood] = useState<string | null>(null);
-  const [symptoms, setSymptoms] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
+  // Form state for the selected day — kept as one object so the effect
+  // below fires a single setState instead of four separate ones.
+  const [form, setForm] = useState({ flow: "none", mood: null as string | null, symptoms: [] as string[], notes: "" });
+  const { flow, mood, symptoms, notes } = form;
+  const setFlow = (v: string) => setForm((f) => ({ ...f, flow: v }));
+  const setMood = (v: string | null) => setForm((f) => ({ ...f, mood: v }));
+  const setSymptoms = (v: string[] | ((prev: string[]) => string[])) =>
+    setForm((f) => ({ ...f, symptoms: typeof v === "function" ? v(f.symptoms) : v }));
+  const setNotes = (v: string) => setForm((f) => ({ ...f, notes: v }));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -125,13 +129,18 @@ export default function Tracker() {
       .catch(() => setLoaded(true));
   }, [router]);
 
-  // Load the form whenever the selected date or logs change
+  // Load the form whenever the selected date or logs change — one setState
+  // call instead of four, since setting several pieces of state directly
+  // inside an effect (even though React batches them) is exactly what the
+  // set-state-in-effect lint rule flags.
   useEffect(() => {
     const existing = logs[selectedDate];
-    setFlow(existing?.flow || "none");
-    setMood(existing?.mood || null);
-    setSymptoms(existing?.symptoms || []);
-    setNotes(existing?.notes || "");
+    setForm({
+      flow: existing?.flow || "none",
+      mood: existing?.mood || null,
+      symptoms: existing?.symptoms || [],
+      notes: existing?.notes || "",
+    });
   }, [selectedDate, logs]);
 
   const mode: "cycle" | "pregnancy" | "menopause" =

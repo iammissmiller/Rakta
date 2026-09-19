@@ -32,7 +32,16 @@ export default function CycleRing({
   const r = size * 0.36;
   const strokeW = size * 0.09;
   const circumference = 2 * Math.PI * r;
-  let offset = 0;
+
+  // Cumulative offset for each segment, computed as a pure reduce instead
+  // of mutating a `let offset` across the .map() below — the old version
+  // reassigned a variable during render, which the lint rule flags even
+  // though it was harmless (a fresh `let` every render, not persisted
+  // across renders).
+  const offsets = SEGMENTS.reduce<number[]>((acc, _seg, i) => {
+    const prevOffset = i === 0 ? 0 : acc[i - 1] + SEGMENTS[i - 1].fraction;
+    return [...acc, prevOffset];
+  }, []);
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -49,9 +58,9 @@ export default function CycleRing({
       {/* Segments */}
       {SEGMENTS.map(({ phase: p, fraction }, i) => {
         const dashLen = fraction * circumference;
-        const dashOffset = circumference - offset * circumference;
+        const dashOffset = circumference - offsets[i] * circumference;
         const isActive = p === phase;
-        const el = (
+        return (
           <circle
             key={i}
             cx={cx}
@@ -70,8 +79,6 @@ export default function CycleRing({
             }}
           />
         );
-        offset += fraction;
-        return el;
       })}
 
       {/* Phase name */}
