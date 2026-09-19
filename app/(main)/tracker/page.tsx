@@ -87,6 +87,148 @@ function getRecentCycleLengths(starts: string[]): number[] {
   return lengths.slice(-4);
 }
 
+// Owns its own flow/mood/symptoms/notes state, initialized directly from
+// `existingLog` when the component mounts. The parent renders this with
+// `key={selectedDate}`, so React fully remounts it (fresh initial state)
+// whenever the selected date changes — the pattern React's own docs
+// recommend for "reset state when a value changes," instead of syncing
+// state via an effect.
+function LogForm({
+  selectedDate,
+  existingLog,
+  mode,
+  symptomOptions,
+  onSaved,
+}: {
+  selectedDate: string;
+  existingLog?: DayLog;
+  mode: "cycle" | "pregnancy" | "menopause";
+  symptomOptions: string[];
+  onSaved: (date: string, entry: DayLog) => void;
+}) {
+  const [flow, setFlow] = useState(existingLog?.flow || "none");
+  const [mood, setMood] = useState<string | null>(existingLog?.mood || null);
+  const [symptoms, setSymptoms] = useState<string[]>(existingLog?.symptoms || []);
+  const [notes, setNotes] = useState(existingLog?.notes || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggleSymptom = (s: string) => {
+    setSymptoms((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  };
+
+  const saveLog = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: selectedDate, flow, mood, symptoms, notes }),
+      });
+      if (res.ok) {
+        onSaved(selectedDate, { date: selectedDate, flow, mood: mood || undefined, symptoms, notes });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ ...card, padding: 20 }}>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="font-serif text-base italic font-semibold text-ink">
+          Log for {selectedDate === todayKey() ? "today" : selectedDate}
+        </div>
+        {saved && <div className="text-xs text-crimson">Saved ♥</div>}
+      </div>
+
+      {mode !== "pregnancy" && (
+        <div className="mb-4">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            {mode === "menopause" ? "Spotting / flow (if any)" : "Flow"}
+          </div>
+          <div className="flex gap-2">
+            {FLOW_OPTIONS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFlow(f.value)}
+                className="flex-1 rounded-xl border py-2 text-xs"
+                style={{
+                  borderColor: flow === f.value ? "#B8000A" : "rgba(184,0,10,0.12)",
+                  background: flow === f.value ? "rgba(184,0,10,0.08)" : "#fff",
+                  color: flow === f.value ? "#B8000A" : "var(--color-ink-light)",
+                  fontWeight: flow === f.value ? 700 : 400,
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Mood</div>
+        <div className="grid grid-cols-6 gap-2">
+          {MOOD_OPTIONS.map(({ symbol, label }) => (
+            <button
+              key={label}
+              onClick={() => setMood(label)}
+              title={label}
+              className="flex flex-col items-center gap-1 rounded-xl py-2"
+              style={{
+                background: mood === label ? "rgba(184,0,10,0.1)" : "rgba(184,0,10,0.04)",
+                outline: mood === label ? "1.5px solid rgba(184,0,10,0.35)" : "1px solid rgba(184,0,10,0.08)",
+              }}
+            >
+              <span style={{ fontSize: 15, color: mood === label ? "#B8000A" : "rgba(184,0,10,0.45)" }}>
+                {symbol}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Symptoms</div>
+        <div className="flex flex-wrap gap-2">
+          {symptomOptions.map((s) => (
+            <button
+              key={s}
+              onClick={() => toggleSymptom(s)}
+              className="rounded-full border px-3 py-1.5 text-xs"
+              style={{
+                borderColor: symptoms.includes(s) ? "#B8000A" : "rgba(184,0,10,0.12)",
+                background: symptoms.includes(s) ? "rgba(184,0,10,0.08)" : "#fff",
+                color: symptoms.includes(s) ? "#B8000A" : "var(--color-ink-light)",
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Notes</div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Anything else worth remembering about today…"
+          className="input"
+          rows={3}
+        />
+      </div>
+
+      <button onClick={saveLog} disabled={saving} className="btn-primary" style={{ width: "auto", padding: "10px 28px" }}>
+        {saving ? "Saving..." : "Save entry"}
+      </button>
+    </div>
+  );
+}
+
 export default function Tracker() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -94,18 +236,6 @@ export default function Tracker() {
   const [importantDates, setImportantDates] = useState<ImportantDate[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayKey());
-
-  // Form state for the selected day — kept as one object so the effect
-  // below fires a single setState instead of four separate ones.
-  const [form, setForm] = useState({ flow: "none", mood: null as string | null, symptoms: [] as string[], notes: "" });
-  const { flow, mood, symptoms, notes } = form;
-  const setFlow = (v: string) => setForm((f) => ({ ...f, flow: v }));
-  const setMood = (v: string | null) => setForm((f) => ({ ...f, mood: v }));
-  const setSymptoms = (v: string[] | ((prev: string[]) => string[])) =>
-    setForm((f) => ({ ...f, symptoms: typeof v === "function" ? v(f.symptoms) : v }));
-  const setNotes = (v: string) => setForm((f) => ({ ...f, notes: v }));
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   const [newDateVal, setNewDateVal] = useState("");
   const [newDateLabel, setNewDateLabel] = useState("");
@@ -128,20 +258,6 @@ export default function Tracker() {
       })
       .catch(() => setLoaded(true));
   }, [router]);
-
-  // Load the form whenever the selected date or logs change — one setState
-  // call instead of four, since setting several pieces of state directly
-  // inside an effect (even though React batches them) is exactly what the
-  // set-state-in-effect lint rule flags.
-  useEffect(() => {
-    const existing = logs[selectedDate];
-    setForm({
-      flow: existing?.flow || "none",
-      mood: existing?.mood || null,
-      symptoms: existing?.symptoms || [],
-      notes: existing?.notes || "",
-    });
-  }, [selectedDate, logs]);
 
   const mode: "cycle" | "pregnancy" | "menopause" =
     profile?.lifeStage === "pregnant"
@@ -178,28 +294,6 @@ export default function Tracker() {
       : profile?.pmosStatus === "yes"
       ? [...BASE_SYMPTOMS, ...PCOS_SYMPTOMS]
       : BASE_SYMPTOMS;
-
-  const toggleSymptom = (s: string) => {
-    setSymptoms((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-  };
-
-  const saveLog = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/logs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: selectedDate, flow, mood, symptoms, notes }),
-      });
-      if (res.ok) {
-        setLogs((prev) => ({ ...prev, [selectedDate]: { date: selectedDate, flow, mood: mood || undefined, symptoms, notes } }));
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const addImportantDate = async () => {
     if (!newDateVal || !newDateLabel.trim()) return;
@@ -296,96 +390,14 @@ export default function Tracker() {
             </div>
           )}
 
-          <div style={{ ...card, padding: 20 }}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="font-serif text-base italic font-semibold text-ink">
-                Log for {selectedDate === todayKey() ? "today" : selectedDate}
-              </div>
-              {saved && <div className="text-xs text-crimson">Saved ♥</div>}
-            </div>
-
-            {mode !== "pregnancy" && (
-              <div className="mb-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {mode === "menopause" ? "Spotting / flow (if any)" : "Flow"}
-                </div>
-                <div className="flex gap-2">
-                  {FLOW_OPTIONS.map((f) => (
-                    <button
-                      key={f.value}
-                      onClick={() => setFlow(f.value)}
-                      className="flex-1 rounded-xl border py-2 text-xs"
-                      style={{
-                        borderColor: flow === f.value ? "#B8000A" : "rgba(184,0,10,0.12)",
-                        background: flow === f.value ? "rgba(184,0,10,0.08)" : "#fff",
-                        color: flow === f.value ? "#B8000A" : "var(--color-ink-light)",
-                        fontWeight: flow === f.value ? 700 : 400,
-                      }}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Mood</div>
-              <div className="grid grid-cols-6 gap-2">
-                {MOOD_OPTIONS.map(({ symbol, label }) => (
-                  <button
-                    key={label}
-                    onClick={() => setMood(label)}
-                    title={label}
-                    className="flex flex-col items-center gap-1 rounded-xl py-2"
-                    style={{
-                      background: mood === label ? "rgba(184,0,10,0.1)" : "rgba(184,0,10,0.04)",
-                      outline: mood === label ? "1.5px solid rgba(184,0,10,0.35)" : "1px solid rgba(184,0,10,0.08)",
-                    }}
-                  >
-                    <span style={{ fontSize: 15, color: mood === label ? "#B8000A" : "rgba(184,0,10,0.45)" }}>
-                      {symbol}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Symptoms</div>
-              <div className="flex flex-wrap gap-2">
-                {symptomOptions.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => toggleSymptom(s)}
-                    className="rounded-full border px-3 py-1.5 text-xs"
-                    style={{
-                      borderColor: symptoms.includes(s) ? "#B8000A" : "rgba(184,0,10,0.12)",
-                      background: symptoms.includes(s) ? "rgba(184,0,10,0.08)" : "#fff",
-                      color: symptoms.includes(s) ? "#B8000A" : "var(--color-ink-light)",
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-5">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Notes</div>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Anything else worth remembering about today…"
-                className="input"
-                rows={3}
-              />
-            </div>
-
-            <button onClick={saveLog} disabled={saving} className="btn-primary" style={{ width: "auto", padding: "10px 28px" }}>
-              {saving ? "Saving..." : "Save entry"}
-            </button>
-          </div>
+          <LogForm
+            key={selectedDate}
+            selectedDate={selectedDate}
+            existingLog={logs[selectedDate]}
+            mode={mode}
+            symptomOptions={symptomOptions}
+            onSaved={(date, entry) => setLogs((prev) => ({ ...prev, [date]: entry }))}
+          />
         </div>
 
         {/* RIGHT: important dates + recent logs */}
