@@ -276,7 +276,7 @@ export default function Tracker() {
               {recentCycleLengths.length >= 1 ? (
                 <p className="mt-1 text-sm text-muted">
                   Recent cycle lengths from your logs: {recentCycleLengths.join(", ")} days.
-                  Since these vary, we're not assuming a fixed date for your next period.
+                  Since these vary, we&apos;re not assuming a fixed date for your next period.
                 </p>
               ) : (
                 <p className="mt-1 text-sm text-muted">
