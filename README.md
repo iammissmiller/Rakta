@@ -19,9 +19,10 @@ A menstrual health app for Indian women — built end to end, learning TypeScrip
 - PostgreSQL (Neon) + Prisma, with driver adapters
 - NextAuth v5 (Auth.js) — credentials login, split edge-safe config for `proxy.ts` route protection, Google OAuth planned
 - Vercel AI SDK + Groq — Saheli's chat with real tool-calling (cycle status, recent logs) and persisted history
-- Vitest — unit tests for the core cycle math, running in CI on every push; Playwright end-to-end tests still planned
+- Vitest — unit tests for the core cycle math, running in CI on every push
+- Playwright — end-to-end test covering signup → onboarding → dashboard
 - GitHub Actions CI — lint, typecheck, and tests run automatically on every push and PR
-- Docker + deployment — *planned*
+- Deployed on Vercel
 
 ## Where this stands ✨
-Auth, database, onboarding, dashboard, landing page, Tracker, Settings, and Family sharing are all working end to end — real accounts, real data, no `localStorage` dependency left anywhere in the app. Route protection runs at the edge via `proxy.ts`. Saheli calls real tools mid-conversation (her own cycle-status and recent-logs data) and remembers past conversations. CI runs lint, typecheck, and the unit test suite on every push. Left to do: the Learn page, Playwright end-to-end tests, Docker, deployment, and Google OAuth.
+Auth, database, onboarding, dashboard, landing page, Tracker, Settings, and Family sharing are all working end to end — real accounts, real data, no `localStorage` dependency left anywhere in the app. Route protection runs at the edge via `proxy.ts`. Saheli calls real tools mid-conversation and remembers past conversations. CI runs lint, typecheck, and unit tests on every push; a Playwright end-to-end test covers the core signup-to-dashboard flow. **The app is live on Vercel.** Left to do: the Learn page, wider end-to-end test coverage (other life-stage paths, the invite-claim flow), Docker (optional now that it's deployed without it), and Google OAuth.
