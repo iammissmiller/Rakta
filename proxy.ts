@@ -18,5 +18,6 @@ export const config = {
     "/settings/:path*",
     "/family/:path*",
     "/invite/:path*",
+    "/learn/:path*",
   ],
 };
