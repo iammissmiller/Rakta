@@ -9,6 +9,7 @@ A menstrual health app for Indian women — built end to end, learning TypeScrip
 - 🗓️ Important dates — flag meetings, travel, or deadlines and get a heads-up if a predicted period might clash with one
 - 💬 Saheli — a bilingual (Hindi/English) AI companion with real tool-calling into your actual cycle status and recent logs, and persisted chat history across sessions
 - 👪 Family sharing — invite a trusted contact to see a read-only view of your status (phase, day, next predicted date — never logs or notes), via a single-claim invite link you send yourself
+- 📖 Learn — a small library of articles on cycles, PCOS, puberty, pregnancy, and menopause
 - ⚙️ Settings — edit your profile, change life stage (with a confirmation step, since it changes what the Tracker shows), and change your password
 - 📜 A diary-inspired design — paper texture, crimson ink, warm serif type — because a health app doesn't have to feel clinical
 - 🔐 Real accounts — signup, login, and onboarding all persist to Postgres, with route-level session protection at the edge (Google sign-in coming soon)
@@ -25,4 +26,6 @@ A menstrual health app for Indian women — built end to end, learning TypeScrip
 - Deployed on Vercel
 
 ## Where this stands ✨
-Auth, database, onboarding, dashboard, landing page, Tracker, Settings, and Family sharing are all working end to end — real accounts, real data, no `localStorage` dependency left anywhere in the app. Route protection runs at the edge via `proxy.ts`. Saheli calls real tools mid-conversation and remembers past conversations. CI runs lint, typecheck, and unit tests on every push; a Playwright end-to-end test covers the core signup-to-dashboard flow. **The app is live on Vercel.** Left to do: the Learn page, wider end-to-end test coverage (other life-stage paths, the invite-claim flow), Docker (optional now that it's deployed without it), and Google OAuth.
+All core functionality is built and live: auth, onboarding, dashboard, Tracker, Saheli, Family sharing, Learn, and Settings all work end to end on real Postgres data, deployed and reachable on the internet. CI runs lint, typecheck, and tests on every push.
+
+**Current focus: UI/UX polish.** The functionality works — now it's about making it feel as good as the diary concept deserves. Known smaller gaps for later: Google OAuth, a forgot-password flow, wider end-to-end test coverage (pregnant/menopausal onboarding, the Family invite-claim flow), rate limiting on Saheli's API route now that it's public, cycle/period length collection during onboarding instead of a hardcoded default, and a proper editorial pass on the Learn articles.
